@@ -1,0 +1,199 @@
+html {
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 12px;
+  margin: 0;
+  height: 100%;
+  width: 100%;
+  margin-top: 30px;
+}
+
+        body {
+            margin: 0 auto;
+            padding: 0px;
+            text-align: center;
+            width: 100%;
+            font-family: "Myriad Pro", 
+                "Helvetica Neue", Helvetica, 
+                Arial, Sans-Serif;
+        }
+  
+        #wrapper {
+            margin: 0 auto;
+            padding: 0px;
+            text-align: center;
+            width: 995px;
+        }
+  
+        #wrapper h1 {
+            margin-top: 50px;
+            font-size: 45px;
+            color: #585858;
+        }
+  
+        #wrapper h1 p {
+            font-size: 20px;
+        }
+  
+        #Tab_DRE {
+            width: 960px;
+            text-align: left;
+            border-collapse: collapse;
+            color: #2E2E2E;
+            border: #A4A4A4;
+        }
+  
+        #Tab_DRE tr:hover {
+          background-color: #696969;
+		  color:#000000;
+		  font-weight: bold;
+		  box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+        }
+		
+		#GP0 {
+			background-color: #088A85;
+			color:#FFFFFF;
+			font-weight: bold;
+        }
+		
+		#GP1 {
+			background-color: #0B0B61;
+			color:#FFFFFF;
+			font-weight: bold;
+        }
+		
+		#GP2 {
+			background-color: #045FB4;
+			/*color:#FFFFFF;*/
+			font-weight: bold;
+			text-indent: 20px;
+
+
+        }
+		
+		#GP3 {
+            
+			background-color: #58ACFA;
+			font-weight: bold;
+			text-indent: 40px;
+
+        }
+		
+		#GP4 {
+            
+			font-weight: bold;
+			text-indent: 50px;
+
+
+        }
+		
+		#GP5 {
+            
+			text-indent: 60px;
+
+        }
+		
+		#GP6 {
+            
+		text-indent: 70px;
+        }
+		
+		#GP7 {
+            
+		text-indent: 75px;
+        }
+		
+		.titulo {
+		font-family: "Times New Roman", Times, serif;
+		font-size: 26px;
+		letter-spacing: 0px;
+		word-spacing: 0px;
+		color: #2F4F4F;
+		font-weight: 700;
+		text-decoration: none solid rgb(68, 68, 68);
+		font-style: normal;
+		font-variant: normal;
+		text-transform: none;
+		text-align: center;
+		text-shadow:0px -1px 1px #2F4F4F;
+		margin-top: 0%;
+		margin-bottom: 50%;
+		margin-right: 0%;
+		margin-left: 0%;
+		position: center;
+		}
+		
+		 #Tab_Titulo {
+            width: 100%;
+        }
+		
+		#TD_GP2 {
+			border-spacing: 10px;
+
+        }
+		
+		.EXIBE {
+            
+		}
+		
+		.OCULTA {
+            display: none;
+		}
+		.loader {
+			position: fixed;
+			left: 0px;
+			top: 0px;
+			width: 100%;
+			height: 100%;
+			z-index: 9999;
+			background: url('http://i.imgur.com/zAD2y29.gif') 50% 50% no-repeat white;
+		}
+		
+		.fixed-header2 th {
+		position: sticky;
+		top: 0;
+		left: 0;
+		background-color: white;
+		box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+		z-index: 2;
+		}
+		
+		.fixed-column {
+		  position: sticky;
+		  left: 0;
+		  background-color: white;
+		  z-index: 1;
+		}
+		
+		
+		.fixed-header2 th:first-child {
+			position: sticky;
+			top: 0;
+			z-index: 2;
+		  }
+				  
+		/* Estilos para fixar o cabeçalho */
+		.fixed-header th {
+		  position: sticky;
+		  top: 0;
+		  background-color: white;
+		  box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+		  z-index: 2; /* Certifique-se de que o cabeçalho fique sobre a primeira coluna quando rolar */
+		}
+
+		/* Estilos para fixar a primeira coluna */
+		.fixed-column {
+		  position: sticky;
+		  left: 0;
+		  background-color: white;
+		  z-index: 1; /* Isso garante que a primeira coluna fique fixa, mas abaixo do cabeçalho fixo ao rolar */
+		}
+
+		/* Ajuste para a segunda linha do cabeçalho, se houver */
+		.fixed-header th:first-child {
+		  z-index: 3; /* Maior z-index para garantir que o canto superior esquerdo fique sobreposto corretamente */
+		}
+
+		/* Ajuste específico para a segunda linha de cabeçalho */
+		.fixed-header th:nth-child(n+2) {
+		  top: 22px; /* Ajuste este valor baseado na altura do seu primeiro cabeçalho */
+		}
