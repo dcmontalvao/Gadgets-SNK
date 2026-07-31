@@ -54,10 +54,12 @@ async function analisarCenarioOpenRouter(S_PROMPT,OPENROUTER_KEY,MODELOS,A_JSON)
 
         // 4. Exibe o texto
         console.log(textoFinal);
+		return textoFinal;
 
 
     } catch (error) {
         console.error(error);
+		return error;
        
        }
 }
