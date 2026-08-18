@@ -44,9 +44,9 @@ LEFT JOIN ALL_TAB_COLUMNS ADC
     ON ADC.OWNER = SYS_CONTEXT('USERENV','CURRENT_SCHEMA')
    AND ADC.TABLE_NAME = INS.NOMETAB
    AND ADC.COLUMN_NAME = CAM.NOMECAMPO
-WHERE INS.nuinstancia = 
+WHERE INS.NOMEINSTANCIA = 
     `;
-    query += "'" + P_INSTANCIA + "' \n order by cam.ordem";
+    query += "'" + P_NOME_INSTANCIA + "' \n order by cam.ordem";
     try {
         const resultado_json = await executeQueryPromise(query);
         const resultado = JSON.parse(resultado_json);
