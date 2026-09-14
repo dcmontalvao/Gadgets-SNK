@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title></title>
+
+  <!-- EDITE SOMENTE ESTE BLOCO -->
+  <script>
+    window.GITHUB_EXECUTOR_CONFIG = {
+      source: "https://github.com/dcmontalvao/Gadgets-SNK/blob/main/Despesas/index.html",
+      checkEverySeconds: 120
+    };
+  </script>
+
+  <style>
+    html, body { width: 100%; height: 100%; margin: 0; background: #fff; }
+  </style>
+</head>
+<body>
+  <script>
+    (async function () {
+      "use strict";
+
+      var CONFIG = window.GITHUB_EXECUTOR_CONFIG;
+      var API = "https://api.github.com";
+
+      function parseSource(url) {
+        var match = String(url || "").trim().match(
+          /^https?:\/\/(?:www\.)?github\.com\/([^/]+)\/([^/]+)\/blob\/([^/]+)\/(.+?)(?:[?#].*)?$/i
+        );
+
+        if (!match) {
+          throw new Error("Informe em GITHUB_EXECUTOR_CONFIG.source a URL completa do arquivo no GitHub.");
+        }
+
+        return {
+          owner: decodeURIComponent(match[1]),
+          repo: decodeURIComponent(match[2]),
+          branch: decodeURIComponent(match[3]),
+          entry: decodeURIComponent(match[4])
+        };
+      }
+
+      function encodePath(path) {
+        return String(path).split("/").map(encodeURIComponent).join("/");
+      }
+
+      function directory(path) {
+        var index = path.lastIndexOf("/");
+        return index >= 0 ? path.slice(0, index + 1) : "";
+      }
+
+      function isExternal(value) {
+        return /^(?:[a-z][a-z\d+.-]*:|\/\/|#|data:|blob:)/i.test(String(value || "").trim());
+      }
+
+      function escapeScriptText(value) {
+        return String(value).replace(/<\/script/gi, "<\\/script");
+      }
+
+      async function requestJson(url) {
+        var response = await fetch(url, {
+          cache: "no-store",
+          headers: {
+            "Accept": "application/vnd.github+json",
+            "X-GitHub-Api-Version": "2022-11-28"
+          }
+        });
+
+        if (!response.ok) {
+          throw new Error("GitHub respondeu " + response.status + " ao consultar o commit.");
+        }
+
+        return response.json();
+      }
+
+      async function requestText(url) {
+        var response = await fetch(url, { cache: "no-store" });
+
+        if (!response.ok) {
+          throw new Error("Não foi possível carregar " + url + " (" + response.status + ").");
+        }
+
+        return response.text();
+      }
+
+      async function replaceAsync(value, expression, replacer) {
+        var matches = Array.from(value.matchAll(expression));
+        if (!matches.length) return value;
+
+        var replacements = await Promise.all(matches.map(function (match) {
+          return replacer.apply(null, match);
+        }));
+
+        var result = "";
+        var cursor = 0;
+
+        matches.forEach(function (match, index) {
+          result += value.slice(cursor, match.index) + replacements[index];
+          cursor = match.index + match[0].length;
+        });
+
+        return result + value.slice(cursor);
+      }
+
+      function rewriteCssUrls(css, cssUrl) {
+        return css.replace(/url\(\s*(["']?)([^"')]+)\1\s*\)/gi, function (full, quote, reference) {
+          if (isExternal(reference)) return full;
+          return 'url("' + new URL(reference, cssUrl).href + '")';
+        });
+      }
+
+      async function prepareDocument(sourceHtml, parsed, commitSha) {
+        var rawRoot = "https://raw.githubusercontent.com/" +
+          encodeURIComponent(parsed.owner) + "/" +
+          encodeURIComponent(parsed.repo) + "/" +
+          encodeURIComponent(commitSha) + "/";
+
+        var entryUrl = rawRoot + encodePath(parsed.entry);
+        var baseUrl = rawRoot + encodePath(directory(parsed.entry));
+        var parser = new DOMParser();
+        var target = parser.parseFromString(sourceHtml, "text/html");
+
+        target.querySelectorAll("base").forEach(function (node) {
+          node.remove();
+        });
+
+        var oldCsp = target.querySelector('meta[http-equiv="Content-Security-Policy" i]');
+        if (oldCsp) oldCsp.remove();
+
+        var base = target.createElement("base");
+        base.href = baseUrl;
+        target.head.prepend(base);
+
+        var stylesheets = Array.from(target.querySelectorAll('link[rel~="stylesheet"][href]'));
+
+        for (var i = 0; i < stylesheets.length; i++) {
+          var link = stylesheets[i];
+          var href = link.getAttribute("href");
+
+          if (!href || isExternal(href)) continue;
+
+          var cssUrl = new URL(href, baseUrl).href;
+          var css = rewriteCssUrls(await requestText(cssUrl), cssUrl);
+          var style = target.createElement("style");
+          style.textContent = css;
+          link.replaceWith(style);
+        }
+
+        var scripts = Array.from(target.querySelectorAll("script[src]"));
+
+        for (var j = 0; j < scripts.length; j++) {
+          var script = scripts[j];
+          var src = script.getAttribute("src");
+
+          if (!src || isExternal(src)) continue;
+
+          var scriptUrl = new URL(src, baseUrl).href;
+          var javascript = await requestText(scriptUrl);
+          script.removeAttribute("src");
+          script.removeAttribute("integrity");
+          script.removeAttribute("crossorigin");
+          script.textContent = escapeScriptText(javascript + "\n//# sourceURL=" + scriptUrl);
+        }
+
+        var localAttributes = [
+          ["img", "src"],
+          ["source", "src"],
+          ["video", "src"],
+          ["video", "poster"],
+          ["audio", "src"],
+          ["track", "src"],
+          ["input", "src"],
+          ["link", "href"]
+        ];
+
+        localAttributes.forEach(function (item) {
+          target.querySelectorAll(item[0] + "[" + item[1] + "]").forEach(function (node) {
+            var value = node.getAttribute(item[1]);
+            if (value && !isExternal(value)) {
+              node.setAttribute(item[1], new URL(value, baseUrl).href);
+            }
+          });
+        });
+
+        target.querySelectorAll("[style]").forEach(function (node) {
+          node.setAttribute("style", rewriteCssUrls(node.getAttribute("style") || "", entryUrl));
+        });
+
+        target.querySelectorAll("style").forEach(function (node) {
+          node.textContent = rewriteCssUrls(node.textContent || "", entryUrl);
+        });
+
+        var watcher = target.createElement("script");
+        watcher.textContent =
+          "(function(){" +
+            "var current=" + JSON.stringify(commitSha) + ";" +
+            "var endpoint=" + JSON.stringify(
+              API + "/repos/" +
+              encodeURIComponent(parsed.owner) + "/" +
+              encodeURIComponent(parsed.repo) + "/commits/" +
+              encodeURIComponent(parsed.branch)
+            ) + ";" +
+            "setInterval(async function(){" +
+              "if(document.hidden)return;" +
+              "try{" +
+                "var response=await fetch(endpoint,{cache:'no-store',headers:{Accept:'application/vnd.github+json'}});" +
+                "if(!response.ok)return;" +
+                "var data=await response.json();" +
+                "if(data.sha&&data.sha!==current)location.reload();" +
+              "}catch(error){console.error('[Executor GitHub] Falha ao verificar atualização:',error);}" +
+            "}," + Math.max(60, Number(CONFIG.checkEverySeconds) || 120) * 1000 + ");" +
+          "})();";
+
+        target.body.appendChild(watcher);
+
+        return "<!doctype html>\n" + target.documentElement.outerHTML;
+      }
+
+      try {
+        var parsed = parseSource(CONFIG.source);
+        var commit = await requestJson(
+          API + "/repos/" +
+          encodeURIComponent(parsed.owner) + "/" +
+          encodeURIComponent(parsed.repo) + "/commits/" +
+          encodeURIComponent(parsed.branch)
+        );
+
+        var rawFile =
+          "https://raw.githubusercontent.com/" +
+          encodeURIComponent(parsed.owner) + "/" +
+          encodeURIComponent(parsed.repo) + "/" +
+          encodeURIComponent(commit.sha) + "/" +
+          encodePath(parsed.entry);
+
+        var sourceHtml = await requestText(rawFile);
+        var completeHtml = await prepareDocument(sourceHtml, parsed, commit.sha);
+
+        document.open();
+        document.write(completeHtml);
+        document.close();
+      } catch (error) {
+        console.error("[Executor GitHub]", error);
+      }
+    })();
+  </script>
+</body>
+</html>
