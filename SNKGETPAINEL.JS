@@ -670,6 +670,10 @@ async function executarGitHub(ID_APPS_SCRIPT, CHAVE_ACESSO, BASE_FOLDER) {
     var painel = await SNKGETPAINEL(ID_APPS_SCRIPT, CHAVE_ACESSO);
     if (!painel) {
         console.warn('[Executor GitHub] Painel não autorizado ou chave não encontrada.');
+        const gadget_status = document.getElementById('status');
+        if (gadget_status) {
+            gadget_status.textContent = 'Painel não autorizado ou chave não encontrada.';
+        }
         return null;
     }
     return executarGitHubDireto(
