@@ -667,15 +667,44 @@ function executarGitHubDireto(P_LINK_GIT, BASE_FOLDER, GITHUB_TOKEN) {
  */
 async function executarGitHub(ID_APPS_SCRIPT, CHAVE_ACESSO, BASE_FOLDER) {
     'use strict';
-    var painel = await SNKGETPAINEL(ID_APPS_SCRIPT, CHAVE_ACESSO);
+
+    // Atualiza o status existente sem apagar o ícone/animação do loader.
+    // Caso o loader não tenha texto próprio, cria apenas o elemento da mensagem.
+    function atualizarStatusLoader(mensagem) {
+        var status = document.getElementById('status');
+        if (!status) {
+            var loader = document.querySelector('#loader, #loading, #app-loader, #loading-overlay, .loader, [data-loader]');
+            if (loader) {
+                status = loader.querySelector('#executor-github-status, [data-loader-status], .loader-status, .loading-text, .status-text');
+                if (!status) {
+                    status = document.createElement('div');
+                    status.id = 'executor-github-status';
+                    status.style.cssText = 'margin-top:10px;text-align:center;';
+                    loader.appendChild(status);
+                }
+            }
+        }
+        if (status) status.textContent = mensagem;
+    }
+
+    atualizarStatusLoader('Consultando acesso ao painel...');
+
+    var painel;
+    try {
+        painel = await SNKGETPAINEL(ID_APPS_SCRIPT, CHAVE_ACESSO);
+    } catch (erro) {
+        console.error('[Executor GitHub] Falha ao consultar acesso ao painel:', erro);
+        atualizarStatusLoader('Falha ao consultar acesso ao painel: ' + (erro && erro.message ? erro.message : 'Erro desconhecido.'));
+        throw erro;
+    }
+
     if (!painel) {
         console.warn('[Executor GitHub] Painel não autorizado ou chave não encontrada.');
-        const gadget_status = document.getElementById('status');
-        if (gadget_status) {
-            gadget_status.textContent = 'Painel não autorizado ou chave não encontrada.';
-        }
+        atualizarStatusLoader('Painel não autorizado ou chave não encontrada.');
         return null;
     }
+
+    atualizarStatusLoader('Carregando painel...');
     return executarGitHubDireto(
         painel.P_LINK_GIT,
         BASE_FOLDER == null ? '' : BASE_FOLDER,
