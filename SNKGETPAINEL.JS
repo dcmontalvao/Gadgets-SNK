@@ -1,30 +1,46 @@
 /**
- * Consulta as credenciais de um painel no Google Apps Script.
- * Nenhum token GitHub ou chave de acesso fica gravado neste arquivo.
+ * SNKGETPAINEL — consulta um painel no Apps Script vinculado à planilha.
  *
- * Uso: const painel = await SNKGETPAINEL(ID_DEPLOY_APPS_SCRIPT, CHAVE_ACESSO);
- * Retorno (chave válida): { GITHUB_TOKEN: '...', P_LINK_GIT: '...' }
- * Retorno (chave inválida ou painel inativo): null
+ * Uso (dentro de função async ou <script type="module">):
+ *   const painel = await SNKGETPAINEL(ID_APPS_SCRIPT, CHAVE_ACESSO);
  *
- * OBS: credenciais retornadas ao navegador são visíveis ao usuário do navegador.
+ * Chave não encontrada/inativa: null.
+ * Encontrada: { GITHUB_TOKEN, P_LINK_GIT }.
+ * Nenhuma credencial está embutida neste arquivo.
+ *
+ * O Apps Script precisa disponibilizar um doPost compatível com o arquivo
+ * SNKGETPAINEL.gs, que retorna a resposta via postMessage.
  */
 async function SNKGETPAINEL(S_URL, CHAVE_ACESSO) {
     'use strict';
 
-    var idAppScript = String(S_URL || '').trim();
-    var chave = String(CHAVE_ACESSO || '').trim();
+    var idAppScript = String(S_URL == null ? '' : S_URL).trim();
+    var chave = String(CHAVE_ACESSO == null ? '' : CHAVE_ACESSO).trim();
 
-    if (!idAppScript || !chave) {
-        return null;
-    }
+    if (!idAppScript || !chave) return null;
+
+    // Aceita o ID da implantação, exatamente como em SNKGETTOKEN.
     if (!/^[A-Za-z0-9_-]+$/.test(idAppScript)) {
-        throw new Error('[SNKGETPAINEL] ID do Apps Script inválido.');
+        throw new Error('[SNKGETPAINEL] ID da implantação inválido.');
+    }
+    if (!document || !window || !window.location || !window.location.origin) {
+        throw new Error('[SNKGETPAINEL] Ambiente de navegador indisponível.');
     }
 
+    // Identifica a resposta desta execução para não misturar chamadas paralelas.
+    var bytes = new Uint8Array(16);
+    crypto.getRandomValues(bytes);
+    var requisicao = 'snkgetpainel_' + Array.from(bytes, function (n) {
+        return n.toString(16).padStart(2, '0');
+    }).join('');
     var origem = window.location.origin;
-    var identificador = 'snkgetpainel_' + Array.from(crypto.getRandomValues(new Uint8Array(16)))
-        .map(function (n) { return n.toString(16).padStart(2, '0'); }).join('');
-    var url = 'https://script.google.com/macros/s/' + encodeURIComponent(idAppScript) + '/exec';
+    var url = 'https://script.google.com/macros/s/' + idAppScript + '/exec';
+
+    if (!document.body) {
+        await new Promise(function (resolve) {
+            document.addEventListener('DOMContentLoaded', resolve, { once: true });
+        });
+    }
 
     return new Promise(function (resolve, reject) {
         var frame = document.createElement('iframe');
@@ -39,31 +55,45 @@ async function SNKGETPAINEL(S_URL, CHAVE_ACESSO) {
             if (frame.parentNode) frame.parentNode.removeChild(frame);
         }
 
-        function finalizar(erro, valor) {
+        function finalizar(erro, resultado) {
             if (encerrado) return;
             encerrado = true;
             limpar();
             if (erro) reject(erro);
-            else resolve(valor);
+            else resolve(resultado);
         }
 
         function receber(evento) {
-            // HtmlService usa origem googleusercontent.com dentro de um iframe do Google.
-            var permitido = evento.origin === 'https://script.google.com' ||
+            // O HtmlService do Apps Script envia mensagens de um host Google.
+            var google = evento.origin === 'https://script.google.com' ||
                 /^https:\/\/[a-z0-9.-]+\.googleusercontent\.com$/i.test(evento.origin);
-            if (!permitido) return;
-            var msg = evento.data;
-            if (!msg || msg.tipo !== 'SNKGETPAINEL_RESULT' || msg.id !== identificador) return;
-            var dados = msg.dados;
-            if (dados === null) return finalizar(null, null);
-            if (!dados || typeof dados.GITHUB_TOKEN !== 'string' ||
-                    typeof dados.P_LINK_GIT !== 'string') {
-                return finalizar(new Error('[SNKGETPAINEL] Resposta inválida do Apps Script.'));
+            if (!google) return;
+
+            var mensagem = evento.data;
+            if (!mensagem || mensagem.tipo !== 'SNKGETPAINEL_RESULT' ||
+                    mensagem.id !== requisicao) return;
+
+            if (mensagem.dados == null) {
+                finalizar(null, null);
+                return;
             }
-            finalizar(null, { GITHUB_TOKEN: dados.GITHUB_TOKEN, P_LINK_GIT: dados.P_LINK_GIT });
+
+            var dados = mensagem.dados;
+            if (typeof dados !== 'object' ||
+                typeof dados.GITHUB_TOKEN !== 'string' ||
+                typeof dados.P_LINK_GIT !== 'string') {
+                finalizar(new Error('[SNKGETPAINEL] Resposta inválida do Apps Script.'));
+                return;
+            }
+
+            // Somente os dois campos solicitados; nada é gravado em window/localStorage.
+            finalizar(null, {
+                GITHUB_TOKEN: dados.GITHUB_TOKEN,
+                P_LINK_GIT: dados.P_LINK_GIT
+            });
         }
 
-        function campo(nome, valor) {
+        function adicionarCampo(nome, valor) {
             var input = document.createElement('input');
             input.type = 'hidden';
             input.name = nome;
@@ -71,23 +101,29 @@ async function SNKGETPAINEL(S_URL, CHAVE_ACESSO) {
             form.appendChild(input);
         }
 
-        frame.name = identificador;
+        frame.name = requisicao;
         frame.setAttribute('aria-hidden', 'true');
-        frame.style.cssText = 'display:none;width:0;height:0;border:0;';
-        form.method = 'POST';
+        frame.style.cssText = 'display:none;width:0;height:0;border:0';
         form.action = url;
-        form.target = identificador;
+        form.method = 'POST';
+        form.target = requisicao;
         form.style.display = 'none';
-        campo('chave', chave);
-        campo('origem', origem);
-        campo('requisicao', identificador);
+        adicionarCampo('chave', chave);
+        adicionarCampo('origem', origem);
+        adicionarCampo('requisicao', requisicao);
+
         window.addEventListener('message', receber);
         document.body.appendChild(frame);
         document.body.appendChild(form);
+
         timer = window.setTimeout(function () {
-            finalizar(new Error('[SNKGETPAINEL] Sem resposta do Apps Script (30 segundos).'));
+            finalizar(new Error('[SNKGETPAINEL] Apps Script não respondeu em 30 segundos.'));
         }, 30000);
-        try { form.submit(); }
-        catch (erro) { finalizar(erro); }
+
+        try {
+            form.submit();
+        } catch (erro) {
+            finalizar(erro);
+        }
     });
 }
