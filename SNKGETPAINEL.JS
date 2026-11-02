@@ -187,7 +187,11 @@ function executarGitHubDireto(P_LINK_GIT, BASE_FOLDER, GITHUB_TOKEN) {
         return String(caminho || '')
             .split('/')
             .map(function (parte) {
-                return encodeURIComponent(parte);
+                try {
+                    return encodeURIComponent(decodeURIComponent(parte));
+                } catch (erro) {
+                    return encodeURIComponent(parte);
+                }
             })
             .join('/');
     }
