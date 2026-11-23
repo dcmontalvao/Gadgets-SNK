@@ -24,7 +24,7 @@
 (function (global, doc) {
     'use strict';
 
-    var VERSAO = '1.0.0';
+    var VERSAO = '1.1.0';
     var NOME_FRAME = 'botuvera-expandido';
     var ID_OVERLAY_PADRAO = 'overlay-externo';
 
@@ -375,6 +375,101 @@
         return null;
     }
 
+
+    /*
+     * Preserva a instancia autenticada do Sankhya movendo o proprio iframe
+     * para o body do workspace. Evita uma nova requisicao a html5component.mge,
+     * que pode recriar o contexto com COD_USUARIO=0 e parametros vazios.
+     */
+    function moverFrameAtualDoGadget() {
+        var frame = null;
+
+        try {
+            frame = global.frameElement;
+        } catch (erroFrame) {
+            return { atualizado: false, motivo: 'O iframe atual nao esta acessivel.' };
+        }
+
+        if (!frame || !frame.ownerDocument || !frame.ownerDocument.body) {
+            return { atualizado: false, motivo: 'O iframe atual nao foi localizado.' };
+        }
+
+        if (global.__sankhyaGadgetFrameMovido) {
+            return { atualizado: true, existente: true };
+        }
+
+        var documento = frame.ownerDocument;
+        var gadget = null;
+        var atual = frame.parentElement;
+
+        while (atual && atual !== documento.body) {
+            if (atual.matches && atual.matches('.dyna-gadget')) {
+                gadget = atual;
+                break;
+            }
+            atual = atual.parentElement;
+        }
+
+        if (!gadget || !frame.parentNode) {
+            return { atualizado: false, motivo: 'O iframe atual nao esta dentro de um gadget Sankhya.' };
+        }
+
+        var paiOriginal = frame.parentNode;
+        var marcador = documento.createComment('sankhya-gadget-frame-origem');
+        var estiloOriginal = frame.getAttribute('style');
+        var overflowOriginal = documento.body.style.overflow;
+        var restaurado = false;
+
+        paiOriginal.insertBefore(marcador, frame);
+        documento.body.appendChild(frame);
+
+        frame.style.setProperty('position', 'fixed', 'important');
+        frame.style.setProperty('top', '0', 'important');
+        frame.style.setProperty('right', '0', 'important');
+        frame.style.setProperty('bottom', '0', 'important');
+        frame.style.setProperty('left', '0', 'important');
+        frame.style.setProperty('width', '100vw', 'important');
+        frame.style.setProperty('height', '100vh', 'important');
+        frame.style.setProperty('max-width', 'none', 'important');
+        frame.style.setProperty('margin', '0', 'important');
+        frame.style.setProperty('border', '0', 'important');
+        frame.style.setProperty('z-index', '2147483646', 'important');
+        frame.style.setProperty('display', 'block', 'important');
+        documento.body.style.overflow = 'hidden';
+
+        function restaurarPosicao() {
+            if (restaurado) return;
+            restaurado = true;
+
+            try {
+                if (marcador.parentNode) {
+                    marcador.parentNode.insertBefore(frame, marcador);
+                    marcador.parentNode.removeChild(marcador);
+                } else if (marcador.parentNode === null && marcador.isConnected) {
+                    marcador.remove();
+                }
+
+                if (estiloOriginal === null) frame.removeAttribute('style');
+                else frame.setAttribute('style', estiloOriginal);
+
+                documento.body.style.overflow = overflowOriginal;
+            } catch (erroRestauracao) {
+                console.warn('[SankhyaGadgetFrame] Nao foi possivel restaurar o iframe.', erroRestauracao);
+            }
+
+            global.__sankhyaGadgetFrameMovido = false;
+        }
+
+        global.addEventListener('pagehide', restaurarPosicao, { once: true });
+        global.__sankhyaGadgetFrameMovido = true;
+
+        return {
+            atualizado: true,
+            preservado: true,
+            motivo: 'A instancia autenticada foi movida para tela cheia.'
+        };
+    }
+
     function recriarFrameDoGadget(opcoes) {
         opcoes = opcoes || {};
 
@@ -489,6 +584,27 @@
 
     function expandirGadget(opcoes) {
         opcoes = opcoes || {};
+
+        /*
+         * Este modo mantem o documento atual e seu contexto Sankhya.
+         * Retorna false para que iniciar() execute montar() nesta mesma instancia.
+         */
+        if (opcoes.preservarInstancia === true) {
+            try {
+                var resultadoPreservacao = moverFrameAtualDoGadget();
+                if (resultadoPreservacao.atualizado && opcoes.ocultarAviso !== false) {
+                    ocultarAvisoTelaPersonalizada({
+                        intervaloMs: opcoes.intervaloAvisoMs
+                    });
+                }
+                if (!resultadoPreservacao.atualizado) {
+                    console.warn('[SankhyaGadgetFrame] Expansao sem recriar iframe:', resultadoPreservacao.motivo);
+                }
+            } catch (erroPreservacao) {
+                console.warn('[SankhyaGadgetFrame] Falha ao preservar a instancia atual.', erroPreservacao);
+            }
+            return Promise.resolve(false);
+        }
 
         try {
             var nuGdg = opcoes.nuGdg;
