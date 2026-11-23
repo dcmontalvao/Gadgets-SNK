@@ -424,7 +424,13 @@
                     'uid', 'instance', 'instancia', 'gadgetid'
                 ];
 
-                var query = new URLSearchParams();
+                /*
+                 * Mantem o contexto original do componente Sankhya.
+                 * gadGetID, userID e outros parametros da URL alimentam
+                 * os parametros dinamicos (P_*) e a sessao do gadget.
+                 * Sem eles, a nova instancia abre com usuario 0 e filtros vazios.
+                 */
+                var query = new URLSearchParams(global.location.search || '');
                 query.set('entryPoint', opcoes.nomeArquivo);
                 query.set('nuGdg', String(nuGdgResolvido));
 
